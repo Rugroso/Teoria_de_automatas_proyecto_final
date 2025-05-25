@@ -13,13 +13,6 @@ class Automaton:
         for from_state, to_state, symbol in transitions:
             self.states[from_state][symbol] = to_state
 
-    def print_transitions(self):
-        print("transitions = [")
-        for frm, to, sym in self.transitions:
-            print(f"    ({frm}, {to}, '{sym}'),")
-        print("]")
-        print(f"accept_states = {self.accept_states}\n")
-
     def process_tokens(self, input_text):
         tokens = []
         state = self.start_state
@@ -47,12 +40,8 @@ class Automaton:
                 # De este modo solamente se me ocurre garantizar que SI esta dentro de un estado de aceptación
                 # (Realmente todo lo esta, a excepción del estado 0, es gracioso jajajaja)
 
-            # 1) espacios: simplemente los ignoramos
-            if c.isspace():
-                i += 1
-                continue
 
-            # 2) '+' / '-' → signo o operador
+            # 1) '+' / '-' → signo o operador
             if c in "+-":
                 nxt = input_text[i+1] if i+1 < n else ""
                 is_sign = last_token in (None, 'op', 'paren_open') and nxt.isdigit()
@@ -64,27 +53,27 @@ class Automaton:
                     i += 1
                     continue
 
-            # 3) operadores puros */=
+            # 2) operadores puros */=
             elif c in "*/=":
                 tokens.append(c)
                 last_token = 'op'
                 i += 1
                 continue
 
-            # 4) paréntesis
+            # 3) paréntesis
             elif c in "()":
                 tokens.append(c)
                 last_token = 'paren_open' if c == '(' else 'paren_close'
                 i += 1
                 continue
 
-            # 5) letras y dígitos → categorías para la tabla
-            elif c.isalpha():
+            # 4) letras y dígitos → categorías para la tabla
+            elif c >= 'a' and c <= 'z' or c >= 'A' and c <= 'Z':
                 category = 'char'
-            elif c.isdigit():
+            elif c >= '0' and c <= '9':
                 category = 'num'
 
-            # 6) Si llegamos aquí, intentamos transición en autómata
+            # 5) Si llegamos aquí, intentamos transición en autómata
             if category in self.states[state]:
                 state = self.states[state][category]
                 buffer += c
@@ -95,20 +84,22 @@ class Automaton:
                 state = self.start_state
                 # NO incrementamos i para reintentar con el mismo carácter
 
-        # 7) al final volcamos lo que quede en buffer
+        # 6) al final volcamos lo que quede en buffer
         if buffer and state in self.accept_states:
             tokens.append('id' if state == ID_STATE else 'num')
-
         return tokens
     
+# Parser para analizar la secuencia de tokens
 class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.pos = 0
 
+    # Método para obtener el token actual sin avanzar
     def peek(self):
         return self.tokens[self.pos] if self.pos < len(self.tokens) else None
-
+    
+    # Método para consumir el token actual y avanzar
     def consume(self, expected=None):
         tok = self.peek()
         if expected and tok != expected:
@@ -116,6 +107,7 @@ class Parser:
         self.pos += 1
         return tok
 
+    # S → id = E
     def parse_S(self):
         if self.peek() != 'id':
             raise SyntaxError("S debe comenzar con identificador")
@@ -126,18 +118,22 @@ class Parser:
             raise SyntaxError("Parentesis desbalanceados")
         if self.pos != len(self.tokens):
             raise SyntaxError("Hay tokens que no se pudieron consumir")
+    
+    # E → E + T | E - T | T
     def parse_E(self):
         self.parse_T()
         while self.peek() in ('+', '-'):
             self.consume()
             self.parse_T()
 
+    # T → T * F | T / F | F
     def parse_T(self):
         self.parse_F()
         while self.peek() in ('*', '/'):
             self.consume()
             self.parse_F()
 
+    # F → id | num | (E)
     def parse_F(self):
         tok = self.peek()
         if tok == 'id' or tok == 'num':
@@ -149,7 +145,9 @@ class Parser:
             self.consume(')')
             return
         raise SyntaxError(f"Se esperaba id, num o '(', encontrado '{tok}'")
-
+    
+    
+# Definición de las transiciones del autómata
 transitions = [
     (3, 4, '+'),
     (3, 4, '-'),
@@ -175,19 +173,35 @@ transitions = [
 
 # Nombres de estados clave
 ID_STATE   = 5   # identificadores
-NUM_STATE  = 6   # número sin signo
-SIGN_STATE = 7   # signo '+' o '-'
+NUM_STATE  = 6   # números
+
+# Estados de aceptación
 accept_states = {1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 # Se crea el autómata
 automaton = Automaton(transitions, accept_states)
 
+# Se solicita al usuario el texto de entrada
 text = input("Enter input text: ")
-tokens = automaton.process_tokens(text)
+
+# quitamos los espacios en blanco al inicio y al final
+text_no_spaces = text.replace(" ", "")
+
+# Se procesa el texto para obtener los tokens
+tokens = automaton.process_tokens(text_no_spaces)
+
+# Se imprimen los tokens obtenidos
 print("Tokens:", tokens)
+
+# Se crea el parser con los tokens obtenidos (usa la clase Parser definida arriba)
 parser = Parser(tokens)
+
+# Se intenta analizar la secuencia de tokens
 try:
+    # Se inicia el análisis sintáctico
     parser.parse_S()
+    # Si se completa sin errores, se imprime un mensaje de éxito
     print("Aceptado")
 except SyntaxError as e:
+    # Si ocurre un error de sintaxis, se imprime el mensaje de error
     print('sintax error:', e)
