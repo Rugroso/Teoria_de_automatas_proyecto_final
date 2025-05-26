@@ -12,8 +12,17 @@ class Automaton:
     def _build_transitions(self, transitions):
         for from_state, to_state, symbol in transitions:
             self.states[from_state][symbol] = to_state
+    
+    def not_validate(self, input_text):
+        allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-*/=() ")
+        return any(c not in allowed_chars for c in input_text)
 
     def process_tokens(self, input_text):
+        
+        if self.not_validate(input_text):
+            print("Se introdujo un carácter no permitido en el texto de entrada.")
+            return []
+        
         tokens = []
         state = self.start_state
         buffer = ""
@@ -189,6 +198,9 @@ text_no_spaces = text.replace(" ", "")
 
 # Se procesa el texto para obtener los tokens
 tokens = automaton.process_tokens(text_no_spaces)
+
+if not tokens:
+    exit(1)
 
 # Se imprimen los tokens obtenidos
 print("Tokens:", tokens)
